@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icsnorm"
+version = "0.1.0"
+description = "Normalize messy iCalendar (.ics) files into strict, well-formed output"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "matthewm735"}]
+
+[project.scripts]
+icsnorm = "icsnorm.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
