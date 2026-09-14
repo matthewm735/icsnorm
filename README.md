@@ -81,13 +81,14 @@ else:
 
 Early. The current checks cover line endings, line folding, trailing
 whitespace, blank lines, the `VCALENDAR` wrapper, `VERSION`/`PRODID`,
-and per-event `UID`/`DTSTART`. `icsnorm.text` handles escaping and
-unescaping of TEXT property values (`SUMMARY`, `DESCRIPTION`, and
-similar), but `normalize()` does not yet parse into individual
-property values on its own, so that module is available as a library
-function without being wired into the CLI. See the roadmap in the
-project history for what's next — timezone handling in particular is
-not covered yet.
+per-event `UID`/`DTSTART`, and backslash escaping in single-value TEXT
+properties (`SUMMARY`, `DESCRIPTION`, `LOCATION`, `COMMENT`,
+`CONTACT`, `TZNAME`) — an escape sequence RFC 5545 doesn't define gets
+flagged, and `--lenient` repairs it by decoding and re-encoding the
+value. `CATEGORIES` isn't covered yet, since it's a comma-separated
+list of TEXT values rather than a single one. Timezone handling isn't
+covered yet either — see the roadmap in the project history for what's
+next.
 
 ## Requirements
 

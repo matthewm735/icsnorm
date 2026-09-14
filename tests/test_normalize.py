@@ -155,6 +155,44 @@ class EventDtstartTests(unittest.TestCase):
         self.assertIn("VEVENT #1 has no DTSTART", ctx.exception.issues)
 
 
+class TextEscapingTests(unittest.TestCase):
+    def setUp(self):
+        self.bad_escape = VALID.replace(
+            "UID:abc123@example.com\r\n",
+            "UID:abc123@example.com\r\nSUMMARY:Room A\\B, unannounced\r\n",
+        )
+
+    def test_strict_rejects_invalid_escape_sequence(self):
+        with self.assertRaises(IcsFormatError) as ctx:
+            normalize(self.bad_escape)
+        self.assertIn("SUMMARY has an invalid backslash escape sequence", ctx.exception.issues)
+
+    def test_lenient_repairs_invalid_escape_sequence(self):
+        result = normalize(self.bad_escape, lenient=True)
+        # The stray backslash before "B" isn't a recognized escape, so it's
+        # dropped; the comma is a real separator character and gets a
+        # proper escape added.
+        self.assertIn("SUMMARY:Room AB\\, unannounced\r\n", result)
+
+    def test_strict_accepts_properly_escaped_text(self):
+        clean = VALID.replace(
+            "UID:abc123@example.com\r\n",
+            "UID:abc123@example.com\r\nSUMMARY:Room A\\, B\\; C\r\n",
+        )
+        self.assertEqual(normalize(clean), clean)
+
+    def test_trailing_lone_backslash_is_flagged_and_repaired(self):
+        dirty = VALID.replace(
+            "UID:abc123@example.com\r\n",
+            "UID:abc123@example.com\r\nLOCATION:Room A\\\r\n",
+        )
+        with self.assertRaises(IcsFormatError) as ctx:
+            normalize(dirty)
+        self.assertIn("LOCATION has an invalid backslash escape sequence", ctx.exception.issues)
+        result = normalize(dirty, lenient=True)
+        self.assertIn("LOCATION:Room A\\\\\r\n", result)
+
+
 class EmptyInputTests(unittest.TestCase):
     def test_empty_input_is_all_missing_pieces_in_lenient_mode(self):
         result = normalize("", lenient=True)

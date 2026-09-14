@@ -7,6 +7,12 @@ wrong, rather than silently reinterpreting the file. Passing
 instead of rejected. A smaller set of problems (currently: an event
 missing DTSTART) can never be auto-fixed, because there is no safe
 value to invent, and always raise regardless of `lenient`.
+
+Single-value TEXT properties (SUMMARY, DESCRIPTION, and the like) are
+checked against the escaping rules in `text.py`: a backslash that
+isn't part of a recognized escape sequence is a formatting problem
+like any other, fixed in lenient mode by decoding and re-encoding the
+value.
 """
 
 from __future__ import annotations
@@ -14,11 +20,20 @@ from __future__ import annotations
 import uuid
 
 from .lines import fold_line, unfold
+from .text import escape_text, unescape_text
 
 _REQUIRED_TOP_LEVEL = (
     ("VERSION", "VERSION:2.0"),
     ("PRODID", "PRODID:-//icsnorm//normalize//EN"),
 )
+
+# Single-value TEXT properties (RFC 5545 3.8.1.*). CATEGORIES is left out
+# on purpose: it's a comma-separated *list* of TEXT values, where the
+# commas are unescaped separators rather than part of one value, and
+# escape_text()/unescape_text() don't know how to split a list.
+_TEXT_PROPERTIES = {"SUMMARY", "DESCRIPTION", "LOCATION", "COMMENT", "CONTACT", "TZNAME"}
+
+_VALID_ESCAPES = {"\\", ";", ",", "n", "N"}
 
 
 class IcsFormatError(ValueError):
@@ -56,6 +71,9 @@ def normalize(text: str, lenient: bool = False) -> str:
         issues.append(blank_issue)
 
     content_lines = unfold(text)
+
+    content_lines, escaping_issues = _check_text_escaping(content_lines, lenient)
+    issues.extend(escaping_issues)
 
     content_lines, wrapper_issues = _ensure_calendar_wrapper(content_lines, lenient)
     issues.extend(wrapper_issues)
@@ -175,3 +193,53 @@ def _prop_name(line: str) -> str:
     if not candidates:
         return line.upper()
     return line[: min(candidates)].upper()
+
+
+def _split_name_and_value(line: str) -> tuple[str, str] | None:
+    """Split a content line into its "NAME[;params]" head and its value.
+
+    The split happens on the first colon that isn't inside a quoted
+    parameter value (RFC 5545 allows a ':' inside a DQUOTE-delimited
+    param-value, e.g. `TZID="/some:weird/zone"`). Returns None if the
+    line has no unquoted colon at all.
+    """
+    in_quotes = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            in_quotes = not in_quotes
+        elif ch == ":" and not in_quotes:
+            return line[:i], line[i + 1 :]
+    return None
+
+
+def _has_invalid_text_escaping(value: str) -> bool:
+    i = 0
+    n = len(value)
+    while i < n:
+        if value[i] == "\\":
+            if i + 1 >= n or value[i + 1] not in _VALID_ESCAPES:
+                return True
+            i += 2
+        else:
+            i += 1
+    return False
+
+
+def _check_text_escaping(lines: list[str], lenient: bool) -> tuple[list[str], list[str]]:
+    issues: list[str] = []
+    output: list[str] = []
+    for line in lines:
+        split = _split_name_and_value(line)
+        if split is None:
+            output.append(line)
+            continue
+        head, value = split
+        if _prop_name(line) not in _TEXT_PROPERTIES or not _has_invalid_text_escaping(value):
+            output.append(line)
+            continue
+        issues.append(f"{_prop_name(line)} has an invalid backslash escape sequence")
+        if lenient:
+            output.append(f"{head}:{escape_text(unescape_text(value))}")
+        else:
+            output.append(line)
+    return output, ([] if lenient else issues)
