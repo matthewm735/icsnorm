@@ -31,6 +31,34 @@ def escape_text(value: str) -> str:
     return "".join(_ESCAPE_MAP.get(ch, "\\n" if ch == "\n" else ch) for ch in value)
 
 
+def split_text_list(value: str) -> list[str]:
+    """Split a list-valued TEXT property (e.g. CATEGORIES) into its items.
+
+    Items are separated by commas, but a comma preceded by a backslash
+    is an escaped literal comma within one item, not a separator. The
+    returned items are still escaped; pass each through unescape_text()
+    to get the raw value.
+    """
+    items: list[str] = []
+    current: list[str] = []
+    i = 0
+    n = len(value)
+    while i < n:
+        ch = value[i]
+        if ch == "\\" and i + 1 < n:
+            current.append(value[i : i + 2])
+            i += 2
+        elif ch == ",":
+            items.append("".join(current))
+            current = []
+            i += 1
+        else:
+            current.append(ch)
+            i += 1
+    items.append("".join(current))
+    return items
+
+
 def unescape_text(value: str) -> str:
     """Decode a TEXT property value into the raw string it represents.
 

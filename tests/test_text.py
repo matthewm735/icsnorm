@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from icsnorm.text import escape_text, unescape_text
+from icsnorm.text import escape_text, split_text_list, unescape_text
 
 
 class EscapeTextTests(unittest.TestCase):
@@ -63,6 +63,23 @@ class UnescapeTextTests(unittest.TestCase):
     def test_round_trips_with_escape_text(self):
         original = "Meeting: room A\\B, floor 2;\nbring \\ printouts"
         self.assertEqual(unescape_text(escape_text(original)), original)
+
+
+class SplitTextListTests(unittest.TestCase):
+    def test_single_item_is_a_one_element_list(self):
+        self.assertEqual(split_text_list("Meeting"), ["Meeting"])
+
+    def test_splits_on_unescaped_commas(self):
+        self.assertEqual(split_text_list("Meeting,Travel,Family"), ["Meeting", "Travel", "Family"])
+
+    def test_escaped_comma_stays_within_one_item(self):
+        self.assertEqual(split_text_list("A\\,B,C"), ["A\\,B", "C"])
+
+    def test_empty_value_is_a_single_empty_item(self):
+        self.assertEqual(split_text_list(""), [""])
+
+    def test_trailing_comma_yields_a_trailing_empty_item(self):
+        self.assertEqual(split_text_list("A,"), ["A", ""])
 
 
 if __name__ == "__main__":

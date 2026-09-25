@@ -193,6 +193,30 @@ class TextEscapingTests(unittest.TestCase):
         self.assertIn("LOCATION:Room A\\\\\r\n", result)
 
 
+class CategoriesEscapingTests(unittest.TestCase):
+    def setUp(self):
+        self.bad_escape = VALID.replace(
+            "UID:abc123@example.com\r\n",
+            "UID:abc123@example.com\r\nCATEGORIES:Work,Room A\\B,Travel\r\n",
+        )
+
+    def test_strict_rejects_invalid_escape_in_a_list_item(self):
+        with self.assertRaises(IcsFormatError) as ctx:
+            normalize(self.bad_escape)
+        self.assertIn("CATEGORIES has an invalid backslash escape sequence", ctx.exception.issues)
+
+    def test_lenient_repairs_only_the_bad_item(self):
+        result = normalize(self.bad_escape, lenient=True)
+        self.assertIn("CATEGORIES:Work,Room AB,Travel\r\n", result)
+
+    def test_strict_accepts_properly_escaped_list(self):
+        clean = VALID.replace(
+            "UID:abc123@example.com\r\n",
+            "UID:abc123@example.com\r\nCATEGORIES:Work,Room A\\, B\r\n",
+        )
+        self.assertEqual(normalize(clean), clean)
+
+
 class EmptyInputTests(unittest.TestCase):
     def test_empty_input_is_all_missing_pieces_in_lenient_mode(self):
         result = normalize("", lenient=True)

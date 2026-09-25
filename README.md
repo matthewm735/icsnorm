@@ -81,14 +81,13 @@ else:
 
 Early. The current checks cover line endings, line folding, trailing
 whitespace, blank lines, the `VCALENDAR` wrapper, `VERSION`/`PRODID`,
-per-event `UID`/`DTSTART`, and backslash escaping in single-value TEXT
-properties (`SUMMARY`, `DESCRIPTION`, `LOCATION`, `COMMENT`,
-`CONTACT`, `TZNAME`) — an escape sequence RFC 5545 doesn't define gets
-flagged, and `--lenient` repairs it by decoding and re-encoding the
-value. `CATEGORIES` isn't covered yet, since it's a comma-separated
-list of TEXT values rather than a single one. Timezone handling isn't
-covered yet either — see the roadmap in the project history for what's
-next.
+per-event `UID`/`DTSTART`, and backslash escaping in TEXT properties —
+both single-value (`SUMMARY`, `DESCRIPTION`, `LOCATION`, `COMMENT`,
+`CONTACT`, `TZNAME`) and the comma-separated list-valued `CATEGORIES`,
+where each item is checked independently. An escape sequence RFC 5545
+doesn't define gets flagged, and `--lenient` repairs it by decoding
+and re-encoding the value (or item). Timezone handling isn't covered
+yet — see the roadmap in the project history for what's next.
 
 ## Requirements
 
