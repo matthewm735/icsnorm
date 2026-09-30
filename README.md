@@ -89,6 +89,14 @@ doesn't define gets flagged, and `--lenient` repairs it by decoding
 and re-encoding the value (or item). Timezone handling isn't covered
 yet — see the roadmap in the project history for what's next.
 
+Event times are checked for consistency: `DTEND` before `DTSTART`, a
+`DATE` start paired with a `DATE-TIME` end, `DTEND` and `DURATION`
+together, a `TZID` on a UTC time, and values that don't parse as dates.
+These are always errors, since choosing which value is right would be
+a guess. Times in different zone frames (say UTC against a `TZID`) are
+not ordered against each other, and a `TZID` isn't yet checked against
+the file's `VTIMEZONE` blocks.
+
 ## Requirements
 
 Python 3.9+. No third-party dependencies.

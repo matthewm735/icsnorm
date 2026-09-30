@@ -23,6 +23,7 @@ import uuid
 
 from .lines import fold_line, unfold
 from .text import escape_text, split_text_list, unescape_text
+from .times import check_event_times
 
 _REQUIRED_TOP_LEVEL = (
     ("VERSION", "VERSION:2.0"),
@@ -164,15 +165,17 @@ def _check_events(lines: list[str], lenient: bool) -> tuple[list[str], list[str]
     hard_errors: list[str] = []
     output: list[str] = []
     in_event = False
-    event_props: set[str] = set()
+    event_props: dict[str, tuple[str, str]] = {}
     event_index = 0
+    nested = 0
 
     for line in lines:
         upper = line.upper()
         if upper == "BEGIN:VEVENT":
             in_event = True
             event_index += 1
-            event_props = set()
+            event_props = {}
+            nested = 0
             output.append(line)
             continue
         if upper == "END:VEVENT":
@@ -182,11 +185,22 @@ def _check_events(lines: list[str], lenient: bool) -> tuple[list[str], list[str]
                     output.append(f"UID:{uuid.uuid4()}@icsnorm.local")
             if "DTSTART" not in event_props:
                 hard_errors.append(f"VEVENT #{event_index} has no DTSTART")
+            hard_errors.extend(check_event_times(event_props, f"VEVENT #{event_index}"))
             in_event = False
             output.append(line)
             continue
         if in_event:
-            event_props.add(_prop_name(line))
+            # A VALARM has its own DURATION and UID-less properties that
+            # must not be mistaken for the event's, so track nesting and
+            # only record properties at the event's own level.
+            if upper.startswith("BEGIN:"):
+                nested += 1
+            elif upper.startswith("END:"):
+                nested -= 1
+            elif nested == 0:
+                split = _split_name_and_value(line)
+                head, value = split if split else (line, "")
+                event_props.setdefault(_prop_name(line), (head, value))
         output.append(line)
 
     return output, ([] if lenient else issues), hard_errors
